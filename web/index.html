@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>¿Cómo de raro eres? — Explorador del español medio</title>
+<meta name="description" content="Construye un perfil y mira qué porcentaje de españoles encaja. Datos del Barómetro del CIS.">
+<style>
+  :root{
+    --bg:#0f1115; --panel:#171a21; --panel2:#1d212a; --line:#2a2f3a;
+    --ink:#e8eaed; --muted:#9aa0ab; --accent:#4f8cff; --accent2:#ffb454;
+    --si:#3fb37f; --no:#e0586b;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    line-height:1.5;-webkit-font-smoothing:antialiased}
+  a{color:var(--accent)}
+  .wrap{max-width:880px;margin:0 auto;padding:32px 20px 80px}
+  header h1{font-size:1.9rem;margin:0 0 6px;letter-spacing:-.02em}
+  header p.sub{color:var(--muted);margin:0 0 4px;font-size:1.02rem}
+  header p.src{color:var(--muted);font-size:.83rem;margin:10px 0 0}
+
+  .result{position:sticky;top:0;z-index:5;background:linear-gradient(180deg,var(--bg) 70%,rgba(15,17,21,0));
+    padding:22px 0 16px;margin:18px 0 6px}
+  .bignum{font-size:2.7rem;font-weight:700;letter-spacing:-.02em;line-height:1.05}
+  .bignum .pct{color:var(--accent)}
+  .rare{color:var(--accent2);font-weight:600}
+  .result .line2{color:var(--muted);margin-top:6px;font-size:.97rem;min-height:1.2em}
+  .bar{height:10px;background:var(--panel2);border-radius:6px;overflow:hidden;margin-top:14px;border:1px solid var(--line)}
+  .bar > i{display:block;height:100%;background:linear-gradient(90deg,var(--accent),#7db0ff);width:0;
+    transition:width .35s cubic-bezier(.2,.7,.2,1)}
+
+  .axes{display:grid;gap:12px;margin-top:14px}
+  .axis{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px 16px}
+  .axis .q{font-weight:600;font-size:1.02rem}
+  .axis .d{color:var(--muted);font-size:.85rem;margin-top:2px}
+  .axis .meta{color:var(--muted);font-size:.8rem;margin-top:6px}
+  .seg{display:inline-flex;background:var(--panel2);border:1px solid var(--line);
+    border-radius:10px;padding:3px;margin-top:11px;gap:3px}
+  .seg button{appearance:none;border:0;background:transparent;color:var(--muted);
+    font:inherit;font-size:.92rem;padding:7px 16px;border-radius:8px;cursor:pointer;transition:.12s}
+  .seg button:hover{color:var(--ink)}
+  .seg button[aria-pressed="true"]{color:#fff;font-weight:600}
+  .seg button.si[aria-pressed="true"]{background:var(--si)}
+  .seg button.no[aria-pressed="true"]{background:var(--no)}
+  .seg button.any[aria-pressed="true"]{background:#3a4150;color:#fff}
+
+  .controls{display:flex;gap:12px;align-items:center;margin-top:18px;flex-wrap:wrap}
+  .controls button{background:var(--panel2);color:var(--ink);border:1px solid var(--line);
+    border-radius:10px;padding:9px 16px;font:inherit;cursor:pointer}
+  .controls button:hover{border-color:#3a4150}
+
+  details.about{margin-top:34px;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:6px 16px}
+  details.about summary{cursor:pointer;font-weight:600;padding:10px 0}
+  details.about p,details.about li{color:var(--muted);font-size:.9rem}
+  footer{color:var(--muted);font-size:.8rem;margin-top:28px;border-top:1px solid var(--line);padding-top:16px}
+  @media(max-width:560px){ .bignum{font-size:2.1rem} header h1{font-size:1.5rem} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>¿Cómo de raro eres?</h1>
+    <p class="sub">Construye un perfil y mira qué porcentaje de españoles encaja con él.</p>
+    <p class="sub" style="font-size:.92rem">Marca <b>Sí</b> o <b>No</b> en las preguntas que te definan y deja en <b>Cualquiera</b> las que te den igual.</p>
+  </header>
+
+  <div class="result">
+    <div class="bignum"><span class="pct" id="pct">100%</span> <span id="phrase">de los españoles encaja con tu perfil</span></div>
+    <div class="line2" id="rare"></div>
+    <div class="bar"><i id="barfill"></i></div>
+  </div>
+
+  <div class="axes" id="axes"></div>
+
+  <div class="controls">
+    <button id="reset">Reiniciar</button>
+    <button id="me">Empezar de cero (todo «Cualquiera»)</button>
+    <span id="basen" style="color:var(--muted);font-size:.82rem"></span>
+  </div>
+
+  <details class="about">
+    <summary>Cómo funciona y de dónde salen los datos</summary>
+    <p id="aboutmeta"></p>
+    <p>Cada pregunta reduce a la población a quienes responden como tú. Los porcentajes
+       no se multiplican de forma independiente: se calculan sobre la <b>distribución conjunta</b>
+       real de las respuestas, de modo que se conservan las correlaciones (por ejemplo, quien
+       se sitúa a la izquierda tiende a no votar a PP o VOX).</p>
+    <ul>
+      <li>Porcentajes <b>ponderados</b> con el coeficiente oficial del CIS.</li>
+      <li>Se usan <b>casos completos</b>: las personas que no responden a alguno de los 7 ejes quedan fuera de la base.</li>
+      <li>Un perfil muy específico puede caer en una combinación que <b>nadie</b> de la muestra declaró: eso indica rareza, no imposibilidad.</li>
+    </ul>
+  </details>
+
+  <footer id="footer"></footer>
+</div>
+
+<script src="data.js"></script>
+<script>
+(function(){
+  var DATA = window.CIS_DATA;
+  if(!DATA){ document.getElementById('axes').textContent =
+    'No se han podido cargar los datos (data.js).'; return; }
+
+  var axes = DATA.axes;          // 7 ejes en orden
+  var W = DATA.weights;          // 128 proporciones
+  var N = axes.length;
+  var state = axes.map(function(){ return 'any'; });  // 'any' | 'si' | 'no'
+
+  // --- render de ejes ---
+  var axesEl = document.getElementById('axes');
+  axes.forEach(function(a, i){
+    var card = document.createElement('div');
+    card.className = 'axis';
+    card.innerHTML =
+      '<div class="q">'+a.question+'</div>'+
+      '<div class="d">'+a.detail+'</div>'+
+      '<div class="seg" role="group">'+
+        '<button class="si"  data-i="'+i+'" data-v="si">Sí</button>'+
+        '<button class="no"  data-i="'+i+'" data-v="no">No</button>'+
+        '<button class="any" data-i="'+i+'" data-v="any">Cualquiera</button>'+
+      '</div>'+
+      '<div class="meta">'+Math.round(a.marginal*100)+'% de los españoles dice que sí a esto.</div>';
+    axesEl.appendChild(card);
+  });
+
+  axesEl.addEventListener('click', function(e){
+    var b = e.target.closest('button'); if(!b) return;
+    state[+b.dataset.i] = b.dataset.v;
+    render();
+  });
+
+  document.getElementById('reset').onclick =
+  document.getElementById('me').onclick = function(){
+    state = axes.map(function(){ return 'any'; }); render();
+  };
+
+  function compute(){
+    var p = 0;
+    for(var cell=0; cell<W.length; cell++){
+      var ok = true;
+      for(var i=0;i<N;i++){
+        if(state[i]==='any') continue;
+        var bit = (cell >> i) & 1;
+        if(state[i]==='si' && bit!==1){ ok=false; break; }
+        if(state[i]==='no' && bit!==0){ ok=false; break; }
+      }
+      if(ok) p += W[cell];
+    }
+    return p;
+  }
+
+  function fmtPct(p){
+    var v = p*100;
+    if(v>=10) return v.toFixed(0)+'%';
+    if(v>=1)  return v.toFixed(1)+'%';
+    if(v>0)   return v.toFixed(2)+'%';
+    return '0%';
+  }
+
+  function render(){
+    // botones
+    document.querySelectorAll('.seg button').forEach(function(b){
+      b.setAttribute('aria-pressed', state[+b.dataset.i]===b.dataset.v ? 'true':'false');
+    });
+    var p = compute();
+    var anyFilter = state.some(function(s){ return s!=='any'; });
+
+    document.getElementById('pct').textContent = fmtPct(p);
+    document.getElementById('phrase').textContent = anyFilter
+      ? 'de los españoles encaja con tu perfil'
+      : 'de los españoles (no has filtrado nada todavía)';
+    document.getElementById('barfill').style.width = Math.max(p*100,0.6)+'%';
+
+    var rare = document.getElementById('rare');
+    if(!anyFilter){ rare.textContent=''; }
+    else if(p<=0){ rare.innerHTML='<span class="rare">Nadie</span> en la muestra del CIS declaró exactamente este perfil. Eres rarísimo/a.'; }
+    else {
+      var one = Math.round(1/p);
+      rare.innerHTML = 'Eres una minoría de aproximadamente <span class="rare">1 de cada '+one.toLocaleString('es-ES')+'</span> españoles.';
+    }
+  }
+
+  // --- textos de metadatos ---
+  var m = DATA.meta;
+  document.getElementById('basen').textContent =
+    'Base: '+m.n_valid.toLocaleString('es-ES')+' entrevistas válidas.';
+  document.getElementById('aboutmeta').textContent =
+    'Fuente: '+m.source+'. '+m.study+'. '+m.fieldwork+'. '+m.universe+'. '+
+    'Muestra: '+m.n_total.toLocaleString('es-ES')+' entrevistas; '+
+    m.n_valid.toLocaleString('es-ES')+' válidas tras exigir respuesta en los 7 ejes. Ponderación: '+m.weight+'.';
+  document.getElementById('footer').innerHTML =
+    'Datos: <a href="https://www.cis.es/" target="_blank" rel="noopener">CIS</a> · '+m.study+
+    '. Herramienta inspirada en <a href="https://www.atvbt.com/youre-weird-explorer/" target="_blank" rel="noopener">«You\'re Weird: Explorer»</a>. '+
+    'Los porcentajes describen a la población española adulta, no a internautas ni a ninguna muestra autoseleccionada.';
+
+  render();
+})();
+</script>
+</body>
+</html>

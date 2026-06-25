@@ -1,0 +1,9 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "eres-raro-espana",
+  "compatibility_date": "2026-06-25",
+  "assets": {
+    "directory": "./web",
+    "not_found_handling": "single-page-application"
+  }
+}
